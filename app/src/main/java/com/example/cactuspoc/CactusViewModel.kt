@@ -1,15 +1,6 @@
 package com.example.cactuspoc
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cactus.*
@@ -25,13 +16,22 @@ class CactusViewModel : ViewModel() {
     var messages by mutableStateOf(listOf<Message>())
         private set
 
-    var isLoading by mutableStateOf(false)
+    var availableModels by mutableStateOf<List<CactusModel>>(emptyList())
         private set
 
     var currentModel by mutableStateOf<CactusModel?>(null)
         private set
 
-    var availableModels by mutableStateOf<List<CactusModel>>(emptyList())
+    var isStreaming by mutableStateOf(false)
+        private set
+
+    var maxTokens by mutableStateOf(1024)
+        private set
+
+    var systemPrompt by mutableStateOf("You are a helpful assistant, your name is Donna, you only respond in English.")
+        private set
+
+    var useGpu by mutableStateOf(true)
         private set
 
     private var lm: CactusLM? = null
@@ -39,23 +39,19 @@ class CactusViewModel : ViewModel() {
     init {
         viewModelScope.launch {
             lm = CactusLM()
-
-            // 🔹 fetch available models dynamically
             availableModels = lm!!.getModels()
 
-            // pick a sensible default
-            val defaultModel =
+            val default =
                 availableModels.firstOrNull { it.slug == "qwen3-0.6" }
                     ?: availableModels.first()
 
-            loadModel(defaultModel)
+            loadModel(default)
         }
     }
 
     fun loadModel(model: CactusModel) {
         viewModelScope.launch {
-            isLoading = true
-
+            isStreaming = false
             lm?.unload()
 
             lm = CactusLM()
@@ -72,7 +68,6 @@ class CactusViewModel : ViewModel() {
             )
 
             currentModel = model
-            isLoading = false
         }
     }
 
@@ -83,56 +78,41 @@ class CactusViewModel : ViewModel() {
         val assistantIndex = messages.lastIndex
 
         viewModelScope.launch {
-            isLoading = true
+            isStreaming = true
 
             lm?.generateCompletion(
-                messages = messages.map {
-                    ChatMessage(it.content, it.role)
+                messages = buildList {
+                    add(ChatMessage(systemPrompt, "system"))
+                    addAll(messages.map { ChatMessage(it.content, it.role) })
                 },
+                params = CactusCompletionParams(
+                    maxTokens = maxTokens
+                ),
                 onToken = { token, _ ->
+                    if (!isStreaming) return@generateCompletion
                     val updated = messages.toMutableList()
-                    val current = updated[assistantIndex]
+                    val cur = updated[assistantIndex]
                     updated[assistantIndex] =
-                        current.copy(content = current.content + token)
+                        cur.copy(content = cur.content + token)
                     messages = updated
                 }
             )
 
-            isLoading = false
+            isStreaming = false
         }
     }
+
+    fun stopGeneration() {
+        isStreaming = false
+        lm?.unload()
+    }
+
+    fun updateMaxTokens(v: Int) { maxTokens = v }
+    fun updateSystemPrompt(v: String) { systemPrompt = v }
+    fun toggleGpu(v: Boolean) { useGpu = v }
 
     override fun onCleared() {
         lm?.unload()
         super.onCleared()
-    }
-}
-
-
-@Composable
-fun ChatBubble(message: Message) {
-    val isUser = message.role == "user"
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
-    ) {
-        Surface(
-            color = if (isUser)
-                MaterialTheme.colorScheme.primary
-            else
-                MaterialTheme.colorScheme.surfaceVariant,
-            shape = MaterialTheme.shapes.medium,
-            modifier = Modifier.padding(4.dp)
-        ) {
-            Text(
-                text = message.content,
-                modifier = Modifier.padding(12.dp),
-                color = if (isUser)
-                    MaterialTheme.colorScheme.onPrimary
-                else
-                    MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
     }
 }

@@ -47,7 +47,7 @@ dependencies {
 
     implementation(libs.cactus)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
-
+    implementation ("androidx.compose.material:material-icons-extended")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
 
 
