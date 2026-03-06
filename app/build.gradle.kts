@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace = "com.example.cactuspoc"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.cactuspoc"
-        minSdk = 24
-        targetSdk = 35
+        minSdk = 29
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -36,6 +36,18 @@ android {
 }
 
 dependencies {
+    // ── Agent 1: Whisper STT + FFmpeg ─────────────────────────────────────────
+    implementation("com.mrljdx:ffmpeg-kit-full:6.1.4")
+    implementation(libs.whisper.lib)
+    implementation("androidx.appcompat:appcompat:1.6.1")
+
+    // ── Agent 2: Cactus LLM (embeddings + reasoning) ──────────────────────────
+    implementation(libs.cactus)
+
+    // ── Agent 3: Gson for command parsing ─────────────────────────────────────
+    implementation("com.google.code.gson:gson:2.10.1")
+
+    // ── Shared ────────────────────────────────────────────────────────────────
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -44,12 +56,9 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-
-    implementation(libs.cactus)
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
-    implementation ("androidx.compose.material:material-icons-extended")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
-
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
