@@ -7,8 +7,14 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import com.example.cactuspoc.Agent2Processor
+import com.example.cactuspoc.ExtractionStage
+import com.example.cactuspoc.TranscriptionStage
 import java.time.Instant
 import java.util.UUID
+import com.example.cactuspoc.agent1.*
+
+//import com.example.cactuspoc.agent2.*
 
 object PipelineManager {
 
@@ -131,7 +137,7 @@ object PipelineManager {
 
             // ── Step 3: Mark done ────────────────────────────────────────
             updateJobResult(job, result)
-            appendLog("Job ${job.id} DONE — ${result.actionable.size} actionable, ${result.contextual.size} contextual")
+            appendLog("Job ${job.id} handed to Agent2 — ${result.actionable.size} actionable, ${result.contextual.size} contextual")
 
         } catch (e: Exception) {
             Log.e(TAG, "Job ${job.id} failed", e)
@@ -139,6 +145,18 @@ object PipelineManager {
             appendLog("Job ${job.id} FAILED: ${e.message}")
         }
     }
+
+    // ---------- Public API for Agent 2 ----------
+
+    fun updateJobStatus(job: PipelineJob, status: JobStatus) = updateStatus(job, status)
+
+    fun markJobDone(job: PipelineJob) {
+        job.status = JobStatus.DONE
+        _jobs.value = _jobs.value.toList()
+        appendLog("Job ${job.id} DONE (Agent2 complete)")
+    }
+
+    fun markJobFailed(job: PipelineJob, message: String) = updateJobFailed(job, message)
 
     // ---------- Mutators (thread-safe via MutableStateFlow copy) ----------
 
@@ -157,9 +175,10 @@ object PipelineManager {
     }
 
     private fun updateJobResult(job: PipelineJob, result: ExtractionResult) {
-        job.status = JobStatus.DONE
+        job.status = JobStatus.EMBEDDING  // Agent 2 will advance to DONE
         job.result = result
         _jobs.value = _jobs.value.toList()
+        Agent2Processor.onJobDone(job)
     }
 
     private fun updateJobFailed(job: PipelineJob, message: String) {

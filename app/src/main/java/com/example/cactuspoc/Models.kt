@@ -1,9 +1,9 @@
-package com.example.cactuspoc
+package com.example.cactuspoc.agent1
 
 import kotlinx.serialization.Serializable
 
 enum class JobStatus {
-    QUEUED, TRANSCRIBING, EXTRACTING, DONE, FAILED
+    QUEUED, TRANSCRIBING, EXTRACTING, EMBEDDING, REASONING, DONE, FAILED
 }
 
 @Serializable

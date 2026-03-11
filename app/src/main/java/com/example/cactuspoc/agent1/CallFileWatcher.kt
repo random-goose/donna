@@ -1,14 +1,24 @@
-package com.example.cactuspoc
+package com.example.cactuspoc.agent1
 
 import android.content.Context
 import android.util.Log
-import kotlinx.coroutines.*
+import com.example.cactuspoc.agent1.ContactResolver
+import com.example.cactuspoc.PipelineManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import java.io.File
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Date
 
 class CallFileWatcher(private val context: Context) {
 
@@ -53,7 +63,7 @@ class CallFileWatcher(private val context: Context) {
             } else {
                 Log.d(TAG, "📂 Files found at startup (${allFiles.size} total):")
                 allFiles.sortedBy { it.lastModified() }.forEach { f ->
-                    Log.d(TAG, "   [${if (f.canRead()) "R" else "!"}] ${f.name}  size=${f.length()}b  modified=${java.util.Date(f.lastModified())}")
+                    Log.d(TAG, "   [${if (f.canRead()) "R" else "!"}] ${f.name}  size=${f.length()}b  modified=${Date(f.lastModified())}")
                 }
 
                 // Separate AMR vs non-AMR
@@ -108,10 +118,10 @@ class CallFileWatcher(private val context: Context) {
         }
 
         val amrFiles = allFiles.filter { it.name.endsWith(".amr", ignoreCase = true) }
-        Log.d(TAG, "poll(): ${allFiles.size} total file(s), ${amrFiles.size} AMR(s), ${seenFiles.size} already seen")
+//        Log.d(TAG, "poll(): ${allFiles.size} total file(s), ${amrFiles.size} AMR(s), ${seenFiles.size} already seen")
 
         val candidates = amrFiles.filter { it.name !in seenFiles }
-        Log.d(TAG, "poll(): ${candidates.size} unseen AMR candidate(s)")
+//        Log.d(TAG, "poll(): ${candidates.size} unseen AMR candidate(s)")
 
         candidates.forEach { file ->
             Log.d(TAG, "  candidate: ${file.name}  size=${file.length()}b  canRead=${file.canRead()}")
@@ -155,7 +165,7 @@ class CallFileWatcher(private val context: Context) {
             ts
         } catch (e: Exception) {
             Log.e(TAG, "  ❌ Failed to parse date/time", e)
-            java.time.Instant.now().toString()
+            Instant.now().toString()
         }
 
         val contactName  = ContactResolver.resolve(context, phone)

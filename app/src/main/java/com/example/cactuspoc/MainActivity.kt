@@ -32,7 +32,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import androidx.core.content.ContextCompat
 import com.cactus.CactusContextInitializer
-import com.example.cactuspoc.*
+import com.example.cactuspoc.agent1.*
+//import com.example.cactuspoc.agent2.*
+import com.example.cactuspoc.ProposedAction
+//import com.example.cactuspoc.agent2.Agent2Processor
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -62,9 +65,7 @@ class MainActivity : ComponentActivity() {
         // Must be first — initialises native Cactus context
         CactusContextInitializer.initialize(this)
         PipelineManager.start(this)
-        callFileWatcher = CallFileWatcher(this)   // init first
-        callFileWatcher.startWatching()           // then call
-
+        Agent2Processor.start(this)
 
         callFileWatcher = CallFileWatcher(this)
 
@@ -117,6 +118,8 @@ fun MainScreen(onWatcherStart: () -> Unit) {
     val context = LocalContext.current
     val jobs by PipelineManager.jobs.collectAsState()
     val logLines by PipelineManager.log.collectAsState()
+    val actions by Agent2Processor.actions.collectAsState()
+    val agent2Log by Agent2Processor.log.collectAsState()
     val scope = rememberCoroutineScope()
 
     // Permission states
@@ -218,6 +221,28 @@ fun MainScreen(onWatcherStart: () -> Unit) {
                     }
                 }
 
+                // ── Proposed Actions ──
+                item {
+                    SectionLabel("PROPOSED ACTIONS  ·  \${actions.size}")
+                }
+                if (actions.isEmpty()) {
+                    item { EmptyState("No actions proposed yet…") }
+                } else {
+                    items(actions.asReversed(), key = { it.triggerItem.id + it.matchedItem.id }) { action ->
+                        ActionCard(action)
+                    }
+                }
+
+                // ── Agent 2 Log ──
+                item {
+                    SectionLabel("AGENT 2 LOG")
+                }
+                if (agent2Log.isEmpty()) {
+                    item { EmptyState("No Agent 2 log entries yet.") }
+                } else {
+                    items(agent2Log.asReversed().take(40)) { line -> LogLine(line) }
+                }
+
                 // ── Log ──
                 item {
                     SectionLabel("SYSTEM LOG")
@@ -269,7 +294,7 @@ fun Header() {
         )
         Spacer(Modifier.weight(1f))
         Text(
-            "Agent 1",
+            "Proof Of Concept",
             color = AccentGreen,
             fontSize = 11.sp,
             letterSpacing = 2.sp
@@ -391,11 +416,16 @@ fun JobCard(job: PipelineJob) {
         JobStatus.QUEUED       -> TextMuted
         JobStatus.TRANSCRIBING -> AccentBlue
         JobStatus.EXTRACTING   -> AccentAmber
+        JobStatus.EMBEDDING    -> AccentBlue
+        JobStatus.REASONING    -> AccentAmber
         JobStatus.DONE         -> AccentGreen
         JobStatus.FAILED       -> AccentRed
     }
 
-    val isActive = job.status == JobStatus.TRANSCRIBING || job.status == JobStatus.EXTRACTING
+    val isActive = job.status in setOf(
+        JobStatus.TRANSCRIBING, JobStatus.EXTRACTING,
+        JobStatus.EMBEDDING, JobStatus.REASONING
+    )
     val infiniteTransition = rememberInfiniteTransition(label = "blink")
     val blinkAlpha by infiniteTransition.animateFloat(
         initialValue = 1f, targetValue = 0.3f,
@@ -569,5 +599,107 @@ private fun isNotificationListenerEnabled(context: android.content.Context): Boo
     val componentName = ComponentName(context, NotificationIngester::class.java)
     return flat.split(":").any {
         try { ComponentName.unflattenFromString(it) == componentName } catch (_: Exception) { false }
+    }
+}
+
+// ─── Action Card ─────────────────────────────────────────────────────────────
+
+@Composable
+fun ActionCard(action: ProposedAction) {
+    val actionColor = when (action.actionType) {
+        "NOTIFY_CLASH"  -> AccentRed
+        "SUGGEST_PREP"  -> AccentAmber
+        "SET_ALARM"     -> AccentBlue
+        else            -> AccentGreen   // SEND_REMINDER
+    }
+
+    Card(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(containerColor = BgCard),
+        border = BorderStroke(1.dp, actionColor.copy(alpha = 0.35f))
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // ── Header row ──
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier
+                        .background(actionColor.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    Text(action.actionType, color = actionColor, fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                }
+                if (action.isCrossContact) {
+                    Spacer(Modifier.width(6.dp))
+                    Box(
+                        Modifier
+                            .background(AccentRed.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 3.dp)
+                    ) {
+                        Text("⚡ CROSS-CONTACT", color = AccentRed, fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                    }
+                }
+                Spacer(Modifier.weight(1f))
+                if (action.similarity > 0.0) {
+                    Text("%.2f".format(action.similarity), color = TextMuted, fontSize = 11.sp)
+                } else {
+                    Text("standalone", color = TextMuted, fontSize = 11.sp)
+                }
+            }
+
+            // ── Notification message ──
+            Text(
+                "\"${action.notificationMessage}\"",
+                color = TextPrimary,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                lineHeight = 20.sp
+            )
+
+            // ── Reasoning ──
+            Text(
+                action.reasoning,
+                color = TextMuted,
+                fontSize = 12.sp,
+                lineHeight = 17.sp
+            )
+
+            // ── Items ──
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .background(BgCardAlt, RoundedCornerShape(8.dp))
+                    .padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                ItemRow("▲", action.triggerItem)
+                if (action.matchedItem.id != "none") {
+                    ItemRow("▼", action.matchedItem)
+                } else {
+                    Text(
+                        "  · (standalone — no related item in memory)",
+                        color = TextMuted,
+                        fontSize = 11.sp,
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ItemRow(prefix: String, item: AgentItem) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(prefix, color = TextMuted, fontSize = 11.sp)
+        Text(
+            "[${item.contactName}] ${item.text}",
+            color = TextPrimary.copy(alpha = 0.75f),
+            fontSize = 11.sp,
+            lineHeight = 16.sp,
+            modifier = Modifier.weight(1f)
+        )
     }
 }

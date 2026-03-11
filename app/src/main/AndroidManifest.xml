@@ -39,7 +39,7 @@
             android:exported="false" />
 
         <service
-            android:name=".NotificationIngester"
+            android:name=".agent1.NotificationIngester"
             android:label="Cactus POC"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
             android:exported="true">

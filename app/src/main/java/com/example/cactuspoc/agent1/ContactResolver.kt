@@ -1,6 +1,7 @@
-package com.example.cactuspoc
+package com.example.cactuspoc.agent1
 
 import android.content.Context
+import android.net.Uri
 import android.provider.ContactsContract
 import android.util.Log
 
@@ -16,9 +17,9 @@ object ContactResolver {
         if (phoneNumber.isBlank()) return "Unknown"
 
         return try {
-            val uri = android.net.Uri.withAppendedPath(
+            val uri = Uri.withAppendedPath(
                 ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
-                android.net.Uri.encode(phoneNumber)
+                Uri.encode(phoneNumber)
             )
             val projection = arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME)
             context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
@@ -40,9 +41,9 @@ object ContactResolver {
         if (phoneNumber.isBlank()) return "personal"
 
         return try {
-            val uri = android.net.Uri.withAppendedPath(
+            val uri = Uri.withAppendedPath(
                 ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
-                android.net.Uri.encode(phoneNumber)
+                Uri.encode(phoneNumber)
             )
             val lookupProjection = arrayOf(ContactsContract.PhoneLookup.LOOKUP_KEY)
             val lookupKey = context.contentResolver.query(uri, lookupProjection, null, null, null)?.use { cursor ->
